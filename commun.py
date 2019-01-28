@@ -31,6 +31,32 @@ def padding(x, length=5):
     return ''
 
 
+def change_code_dep(x):
+    dico = {'ZA':'971', 'ZB':'972', 'ZC':'973', 'ZD':'974',
+            'ZM':'976', 'ZN':'988', 'ZS':'975', 'ZX':'978',
+            'ZW':'986', 'ZP':'987', 'ZZ':'99'}
+    if x.upper() in dico.keys():
+        return dico[x.upper()]
+    return x.upper()
+
+
+def change_code_commune(x, FDE=0):
+    dico = {'ZA':'971', 'ZB':'972', 'ZC':'973', 'ZD':'974',
+            'ZM':'976', 'ZN':'988', 'ZS':'975', 'ZX':'978',
+            'ZP':'987', 'ZW':'986', 'ZZ':'99'}
+    if x[:2].upper() == 'ZZ' and FDE == 1:
+        return '99' + x[-3:]
+    if x[:2].upper() in dico.keys():
+        return dico[x[:2].upper()] + x[-2:]
+    return x.upper()
+
+
+def code_insee_6_car(x):
+    if len(x)==6:
+        return x[:3]+x[-2:]
+    return x
+
+
 def merge_epci(df):
     filepath = '/Users/eugenie.ly/Documents/La REM/données/arborescences/epci/epcicom2018_4.xls'
     filesheet = 'Epcicom2018'
