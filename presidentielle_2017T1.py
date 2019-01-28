@@ -27,6 +27,11 @@ res_electoral_insee['nom_complet_candidat'] = res_electoral_insee['prenom_candid
 L = ['code_insee_departement', 'nom_departement', 'code_circonscription',
  'nom_circonscription','nom_commune_bdv','sexe_candidat','nom_candidat', 'prenom_candidat',
  'nom_bdv','adresse_bdv','ville_adresse_bdv']
+
+res_electoral_insee['code_insee_commune'] = res_electoral_insee['code_insee_commune'].apply(lambda x: commun.change_code_commune(commun.padding(x), FDE=1))
+res_electoral_insee.nom_departement = res_electoral_insee.nom_departement.str.title()
+res_electoral_insee.code_insee_departement = res_electoral_insee.code_insee_departement.apply(lambda x: commun.change_code_dep(x))
+
 for c in L :
     res_electoral_insee[c] = res_electoral_insee[c].str.title()
 res_electoral_insee['code_bdv'] = res_electoral_insee['code_insee_commune']+'_'+res_electoral_insee['code_bdv']
