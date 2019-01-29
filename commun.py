@@ -173,7 +173,7 @@ def traitement_lyon(df):
         L_bdv = ['{' + bdv + '}' for bdv in L_bdv]
         for bdv_str in L_bdv:
             bdv_str_to_dict = json.loads(bdv_str)
-            bdv_dict = bdv_str_to_dict['geometry'].update(bdv_str_to_dict['properties'])
+            #bdv_dict = bdv_str_to_dict['geometry'].update(bdv_str_to_dict['properties'])
             lyon_geopoint = lyon_geopoint.append(bdv_str_to_dict['geometry'], ignore_index=True)
 
     f_in.close()
@@ -298,3 +298,101 @@ def info_commune(df, nom_election, date_election):
         regions[c] = regions[c].str.title()
     return pd.merge(res3, regions[['code_insee_region', 'nom_region', 'code_insee_departement']], on='code_insee_departement', how='left')
 
+
+def code_insee_commune_to_code_insee_departement(x):
+    if x[:2] == '97' or x[:2] == '98':
+        return x[:3]
+    return x[:2]
+
+
+def creation_fichier_info_supp(filepath_info_supp):
+    filepath_pop_muni = "/Users/eugenie.ly/Documents/La REM/pôle politique/fiche localité/input/recensement_2016.csv"
+    filepath_geoshapes = '/Users/eugenie.ly/Documents/La REM/données/fonds de carte/communes/output/geoshapes_communes.geojson'
+    filepath_regions = '/Users/eugenie.ly/Documents/La REM/pôle politique/fiche localité/input/departement.csv'
+    filepath_epci = '/Users/eugenie.ly/Documents/La REM/données/arborescences/epci/epcicom2018_4.xls'
+    filesheet_epci = 'Epcicom2018'
+
+    pop_muni_df = pd.read_csv(filepath_pop_muni, sep=';',
+                              dtype={'code_insee_departement': str, 'code_insee_canton': str,
+                                     'code_insee_arrondissement': str, 'code_insee_commune': str,
+                                     'code_insee_region': str,
+                                     'nom_commune': str})
+    pop_muni_df.rename(columns={'popMuni': 'population_commune'}, inplace=True)
+    pop_muni_df['code_insee_commune'] = pop_muni_df['code_insee_departement'] + pop_muni_df['code_insee_commune']
+    pop_muni_df = pop_muni_df[['code_insee_commune', 'population_commune']]
+
+    data = json.load(open(filepath_geoshapes))
+    l_code_insee = []
+    l_latitude_longitude = []
+    l_code_postal = []
+    for i in range(len(data['features'])):
+        l_code_insee.append(data['features'][i]['properties']['town_insee'])
+        l_latitude_longitude.append(data['features'][i]['properties']['latitude_longitude'])
+        l_code_postal.append(data['features'][i]['properties']['code_postal'])
+    geoshapes_df = pd.DataFrame(
+        {'code_insee_commune': l_code_insee,
+         'latitude_longitude_commune': l_latitude_longitude,
+         'code_postal': l_code_postal
+         })
+
+    regions_df = pd.read_csv(filepath_regions, sep=';',
+                             dtype={'code_insee_region': str, 'nom_region': str,
+                                    'code_insee_departement': str, 'nom_departement': str})
+    l = ['nom_region', 'nom_departement']
+    for c in l:
+        regions_df[c] = regions_df[c].str.title()
+
+    epci_df = pd.read_excel(filepath_epci, sheetname=filesheet_epci, header=0,
+                            converters={'dept': str, 'siren': str, 'raison_sociale': str, 'nature_juridique': str,
+                                        'mode_financ': str, 'nb_membres': str, 'total_pop_tot': str,
+                                        'total_pop_mun': str,
+                                        'dep_com': str, 'insee': str, 'siren_membre': str, 'nom_membre': str,
+                                        'ptot_2018': str,
+                                        'pmun_2018': str})
+    columns = ['siren', 'raison_sociale', 'nature_juridique',
+               'mode_financ', 'nb_membres', 'total_pop_tot', 'insee']
+    for c in columns:
+        epci_df[c] = epci_df[c].str.title()
+    renamed_columns = {'siren': 'code_siren_epci',
+                       'raison_sociale': 'nom_epci',
+                       'nature_juridique': 'nature_juridique_epci',
+                       'mode_financ': 'mode_financement_epci',
+                       'nb_membres': 'nb_communes_epci',
+                       'total_pop_tot': 'population_epci',
+                       'insee': 'code_insee_commune'}
+    epci_df = epci_df[columns].rename(columns=renamed_columns)
+
+    J1 = pd.merge(pop_muni_df, geoshapes_df, on='code_insee_commune', how='outer')
+    J1['code_insee_departement'] = J1['code_insee_commune'].apply(
+        lambda x: code_insee_commune_to_code_insee_departement(x))
+    J2 = pd.merge(J1, regions_df[['code_insee_region', 'nom_region', 'code_insee_departement']],
+                  on='code_insee_departement', how='outer')
+    J2.drop(columns=['code_insee_departement'], inplace=True)
+    J3 = pd.merge(J2, epci_df, on='code_insee_commune', how='outer')
+    J3.to_csv(filepath_info_supp, index=False)
+    return J3
+
+
+def jointure(df):
+    filepath_info_supp = 'info_supp_total.csv'
+    try:
+        with open(filepath_info_supp):
+            info_supp_df = pd.read_csv(filepath_info_supp,
+                                       dtype = {'code_insee_commune':str, 'population_commune':str,
+                                                'latitude_longitude_commune':str, 'code_postal':str,
+                                                'code_insee_region':str, 'nom_region':str, 'code_siren_epci':str,
+                                                'nom_epci':str, 'nature_juridique_epci':str,
+                                                'mode_financement_epci':str, 'nb_communes_epci':str,
+                                                'population_epci':str})
+    except IOError:
+        info_supp_df = creation_fichier_info_supp(filepath_info_supp)
+    return pd.merge(df, info_supp_df, on='code_insee_commune', how='left')
+
+
+def traitement_election(res_electoral_insee, nom_election, date_election):
+    res1 = traitement_paris(res_electoral_insee)
+    res2 = traitement_lyon(res1)
+    res3 = traitement_marseille(res2)
+    res3['nom_election'] = nom_election
+    res3['date_election'] = date_election
+    return info_commune(res3, nom_election, date_election)
