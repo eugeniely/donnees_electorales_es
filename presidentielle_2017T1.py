@@ -36,13 +36,13 @@ for c in L :
     res_electoral_insee[c] = res_electoral_insee[c].str.title()
 res_electoral_insee['code_bdv'] = res_electoral_insee['code_insee_commune']+'_'+res_electoral_insee['code_bdv']
 
-print('1')
-res1 = commun.merge_epci(res_electoral_insee)
-print('2')
-res2 = commun.traitement_paris(res1)
-print('3')
-res3 = commun.traitement_lyon(res2)
-print('4')
-res4 = commun.traitement_marseille(res3)
-print('5')
-res5 = commun.info_commune(res4, nom_election, date_election)
+#Solution 1
+#res1 = commun.merge_epci(res_electoral_insee)
+#res2 = commun.traitement_paris(res1)
+#res3 = commun.traitement_lyon(res2)
+#res4 = commun.traitement_marseille(res3)
+#res5 = commun.info_commune(res4, nom_election, date_election)`
+
+#Solution 2
+res = commun.traitement_election(res_electoral_insee, nom_election, date_election)
+res.to_csv(output_file, index=False)
