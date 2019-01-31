@@ -41,9 +41,11 @@ res_electoral_insee['code_bdv'] = res_electoral_insee['code_insee_commune']+'_'+
 #res2 = commun.traitement_paris(res1)
 #res3 = commun.traitement_lyon(res2)
 #res4 = commun.traitement_marseille(res3)
-#res5 = commun.info_commune(res4, nom_election, date_election)`
+#res5 = commun.info_commune(res4, nom_election, date_election)
+#res = jointure_code_commune(res5)
 
 #Solution 2
 commun.check_format(res_electoral_insee)
-res = commun.traitement_election(res_electoral_insee, nom_election, date_election)
+res1 = commun.traitement_election(res_electoral_insee, nom_election, date_election)
+res = commun.jointure(res1)
 res.to_csv(output_file, index=False)

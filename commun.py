@@ -173,9 +173,10 @@ def traitement_lyon(df):
         L_bdv = ['{' + bdv + '}' for bdv in L_bdv]
         for bdv_str in L_bdv:
             bdv_str_to_dict = json.loads(bdv_str)
-            #bdv_dict = bdv_str_to_dict['geometry'].update(bdv_str_to_dict['properties'])
-            lyon_geopoint = lyon_geopoint.append(bdv_str_to_dict['geometry'], ignore_index=True)
-
+            row = {}
+            row.update(bdv_str_to_dict['geometry'])
+            row.update(bdv_str_to_dict['properties'])
+            lyon_geopoint = lyon_geopoint.append(row, ignore_index=True)
     f_in.close()
     res_lyon = df[df['code_insee_commune'] == '69123']
     res = df[df['code_insee_commune'] != '69123']
@@ -305,74 +306,6 @@ def code_insee_commune_to_code_insee_departement(x):
     return x[:2]
 
 
-def creation_fichier_info_supp(filepath_info_supp):
-    filepath_pop_muni = "/Users/eugenie.ly/Documents/La REM/pôle politique/fiche localité/input/recensement_2016.csv"
-    filepath_geoshapes = '/Users/eugenie.ly/Documents/La REM/données/fonds de carte/communes/output/geoshapes_communes.geojson'
-    filepath_regions = '/Users/eugenie.ly/Documents/La REM/pôle politique/fiche localité/input/departement.csv'
-    filepath_epci = '/Users/eugenie.ly/Documents/La REM/données/arborescences/epci/epcicom2018_4.xls'
-    filesheet_epci = 'Epcicom2018'
-
-    pop_muni_df = pd.read_csv(filepath_pop_muni, sep=';',
-                              dtype={'code_insee_departement': str, 'code_insee_canton': str,
-                                     'code_insee_arrondissement': str, 'code_insee_commune': str,
-                                     'code_insee_region': str,
-                                     'nom_commune': str})
-    pop_muni_df.rename(columns={'popMuni': 'population_commune'}, inplace=True)
-    pop_muni_df['code_insee_commune'] = pop_muni_df['code_insee_departement'] + pop_muni_df['code_insee_commune']
-    pop_muni_df = pop_muni_df[['code_insee_commune', 'population_commune']]
-
-    data = json.load(open(filepath_geoshapes))
-    l_code_insee = []
-    l_latitude_longitude = []
-    l_code_postal = []
-    for i in range(len(data['features'])):
-        l_code_insee.append(data['features'][i]['properties']['town_insee'])
-        l_latitude_longitude.append(data['features'][i]['properties']['latitude_longitude'])
-        l_code_postal.append(data['features'][i]['properties']['code_postal'])
-    geoshapes_df = pd.DataFrame(
-        {'code_insee_commune': l_code_insee,
-         'latitude_longitude_commune': l_latitude_longitude,
-         'code_postal': l_code_postal
-         })
-
-    regions_df = pd.read_csv(filepath_regions, sep=';',
-                             dtype={'code_insee_region': str, 'nom_region': str,
-                                    'code_insee_departement': str, 'nom_departement': str})
-    l = ['nom_region', 'nom_departement']
-    for c in l:
-        regions_df[c] = regions_df[c].str.title()
-
-    epci_df = pd.read_excel(filepath_epci, sheetname=filesheet_epci, header=0,
-                            converters={'dept': str, 'siren': str, 'raison_sociale': str, 'nature_juridique': str,
-                                        'mode_financ': str, 'nb_membres': str, 'total_pop_tot': str,
-                                        'total_pop_mun': str,
-                                        'dep_com': str, 'insee': str, 'siren_membre': str, 'nom_membre': str,
-                                        'ptot_2018': str,
-                                        'pmun_2018': str})
-    columns = ['siren', 'raison_sociale', 'nature_juridique',
-               'mode_financ', 'nb_membres', 'total_pop_tot', 'insee']
-    for c in columns:
-        epci_df[c] = epci_df[c].str.title()
-    renamed_columns = {'siren': 'code_siren_epci',
-                       'raison_sociale': 'nom_epci',
-                       'nature_juridique': 'nature_juridique_epci',
-                       'mode_financ': 'mode_financement_epci',
-                       'nb_membres': 'nb_communes_epci',
-                       'total_pop_tot': 'population_epci',
-                       'insee': 'code_insee_commune'}
-    epci_df = epci_df[columns].rename(columns=renamed_columns)
-
-    J1 = pd.merge(pop_muni_df, geoshapes_df, on='code_insee_commune', how='outer')
-    J1['code_insee_departement'] = J1['code_insee_commune'].apply(
-        lambda x: code_insee_commune_to_code_insee_departement(x))
-    J2 = pd.merge(J1, regions_df[['code_insee_region', 'nom_region', 'code_insee_departement']],
-                  on='code_insee_departement', how='outer')
-    J2.drop(columns=['code_insee_departement'], inplace=True)
-    J3 = pd.merge(J2, epci_df, on='code_insee_commune', how='outer')
-    J3.to_csv(filepath_info_supp, index=False)
-    return J3
-
-
 def check_format(df):
     if 'code_insee_departement' in df.columns:
         L = []
@@ -439,69 +372,191 @@ def check_format(df):
         print(L4)
 
 
-def jointure_nom_departement(df):
+def creation_fichier_info_supp_commune(filepath_info_supp_commune):
+    filepath_pop_muni = "/Users/eugenie.ly/Documents/La REM/pôle politique/fiche localité/input/recensement_2016.csv"
+    filepath_geoshapes = '/Users/eugenie.ly/Documents/La REM/données/fonds de carte/communes/output/geoshapes_communes.geojson'
+    filepath_regions = '/Users/eugenie.ly/Documents/La REM/pôle politique/fiche localité/input/departement.csv'
+    filepath_epci = '/Users/eugenie.ly/Documents/La REM/données/arborescences/epci/epcicom2018_4.xls'
+    filesheet_epci = 'Epcicom2018'
+
+    pop_muni_df = pd.read_csv(filepath_pop_muni, sep=';',
+                              dtype={'code_insee_departement': str, 'code_insee_canton': str,
+                                     'code_insee_arrondissement': str, 'code_insee_commune': str,
+                                     'code_insee_region': str,
+                                     'nom_commune': str})
+    pop_muni_df.rename(columns={'popMuni': 'population_commune'}, inplace=True)
+    pop_muni_df['code_insee_commune'] = pop_muni_df['code_insee_departement'] + pop_muni_df['code_insee_commune']
+    pop_muni_df = pop_muni_df[['code_insee_commune', 'population_commune']]
+
+    data = json.load(open(filepath_geoshapes))
+    l_code_insee = []
+    l_latitude_longitude = []
+    l_code_postal = []
+    for i in range(len(data['features'])):
+        l_code_insee.append(data['features'][i]['properties']['town_insee'])
+        l_latitude_longitude.append(data['features'][i]['properties']['latitude_longitude'])
+        l_code_postal.append(data['features'][i]['properties']['code_postal'])
+    geoshapes_df = pd.DataFrame(
+        {'code_insee_commune': l_code_insee,
+         'latitude_longitude_commune': l_latitude_longitude,
+         'code_postal': l_code_postal
+         })
+
+    regions_df = pd.read_csv(filepath_regions, sep=';',
+                             dtype={'code_insee_region': str, 'nom_region': str,
+                                    'code_insee_departement': str, 'nom_departement': str})
+    l = ['nom_region', 'nom_departement']
+    for c in l:
+        regions_df[c] = regions_df[c].str.title()
+
+    epci_df = pd.read_excel(filepath_epci, sheet_name=filesheet_epci, header=0,
+                            converters={'dept': str, 'siren': str, 'raison_sociale': str, 'nature_juridique': str,
+                                        'mode_financ': str, 'nb_membres': str, 'total_pop_tot': str,
+                                        'total_pop_mun': str,
+                                        'dep_com': str, 'insee': str, 'siren_membre': str, 'nom_membre': str,
+                                        'ptot_2018': str,
+                                        'pmun_2018': str})
+    columns = ['siren', 'raison_sociale', 'nature_juridique',
+               'mode_financ', 'nb_membres', 'total_pop_tot', 'insee']
+    for c in columns:
+        epci_df[c] = epci_df[c].str.title()
+    renamed_columns = {'siren': 'code_siren_epci',
+                       'raison_sociale': 'nom_epci',
+                       'nature_juridique': 'nature_juridique_epci',
+                       'mode_financ': 'mode_financement_epci',
+                       'nb_membres': 'nb_communes_epci',
+                       'total_pop_tot': 'population_epci',
+                       'insee': 'code_insee_commune'}
+    epci_df = epci_df[columns].rename(columns=renamed_columns)
+
+    J1 = pd.merge(pop_muni_df, geoshapes_df, on='code_insee_commune', how='outer')
+    J1['code_insee_departement'] = J1['code_insee_commune'].apply(
+        lambda x: code_insee_commune_to_code_insee_departement(x))
+    J2 = pd.merge(J1, regions_df[['code_insee_region', 'nom_region', 'code_insee_departement']],
+                  on='code_insee_departement', how='outer')
+    J2.drop(columns=['code_insee_departement'], inplace=True)
+    J3 = pd.merge(J2, epci_df, on='code_insee_commune', how='outer')
+    J3.to_csv(filepath_info_supp_commune, index=False)
+    return J3
+
+
+def jointure_code_commune(df):
+    filepath_info_supp_commune = 'info_supp_commune.csv'
+    try:
+        with open(filepath_info_supp_commune):
+            info_supp_df = pd.read_csv(filepath_info_supp_commune,
+                                       dtype={'code_insee_commune': str, 'population_commune': str,
+                                              'latitude_longitude_commune': str, 'code_postal': str,
+                                              'code_insee_region': str, 'nom_region': str, 'code_siren_epci': str,
+                                              'nom_epci': str, 'nature_juridique_epci': str,
+                                              'mode_financement_epci': str, 'nb_communes_epci': str,
+                                              'population_epci': str})
+    except IOError:
+        info_supp_df = creation_fichier_info_supp_commune(filepath_info_supp_commune)
+    L = []
+    for i in df.columns.tolist():
+        if i not in info_supp_df.columns.tolist():
+            L.append(i)
+    L.append('code_insee_commune')
+    return pd.merge(df[L], info_supp_df, on='code_insee_commune', how='left')
+
+
+def creation_fichier_info_supp_bdv_2017(filepath_info_supp_bdv_2017):
+    res2017_filepath = "/Users/eugenie.ly/Documents/La REM/données/données électorales/présidentielles/2017_T1/bureau de vote/présidentielles2017_T1_bdv_OpenDataSoft__election-presidentielle-2017-resultats-par-bureaux-de-vote-tour-1.csv"
+    res_2017 = pd.read_csv(res2017_filepath, sep=';',
+                           dtype={'Code du département': str, 'Département': str, 'Code de la circonscription': str,
+                                  'Circonscription': str, 'Code de la commune': str, 'Commune': str,
+                                  'Bureau de vote': str, 'Code Insee': str,
+                                  'Coordonnées': str, 'Nom Bureau Vote': str, 'Adresse': str, 'Code Postal': str,
+                                  'Ville': str, 'uniq_bdv': str})
+    res_2017.rename(columns={'Code du département': 'code_insee_departement', 'Département': 'nom_departement',
+                             'Code de la circonscription': 'code_circonscription',
+                             'Circonscription': 'nom_circonscription',
+                             'Code de la commune': 'code_insee_commune_intermediaire', 'Commune': 'nom_commune_bdv',
+                             'Bureau de vote': 'code_bdv_intermédiaire',
+                             'Inscrits': 'nb_inscrits', 'Abstentions': 'nb_abstentions',
+                             '% Abs/Ins': 'abstentions_sur_inscrits_pc', 'Votants': 'nb_votants',
+                             '% Vot/Ins': 'votants_sur_inscrits_pc',
+                             'Blancs': 'nb_blancs', '% Blancs/Ins': 'blancs_sur_inscrits_pc',
+                             '% Blancs/Vot': 'blancs_sur_votants_pc', 'Nuls': 'nb_nuls',
+                             '% Nuls/Ins': 'nuls_sur_inscrits_pc',
+                             '% Nuls/Vot': 'nuls_sur_votants_pc', 'Exprimés': 'nb_exprimes',
+                             '% Exp/Ins': 'exprimes_sur_inscrits_pc', '% Exp/Vot': 'exprimes_sur_votants_pc',
+                             'N°Panneau': 'numero_panneau', 'Sexe': 'sexe_candidat',
+                             'Nom': 'nom_candidat', 'Prénom': 'prenom_candidat', 'Voix': 'nb_voix',
+                             '% Voix/Ins': 'voix_sur_inscrits_pc', '% Voix/Exp': 'voix_sur_exprimes_pc',
+                             'Code Insee': 'code_insee_commune',
+                             'Coordonnées': 'latitude_longitude_bdv', 'Nom Bureau Vote': 'nom_bdv',
+                             'Adresse': 'adresse_bdv', 'Code Postal': 'code_postal', 'Ville': 'ville_adresse_bdv',
+                             'uniq_bdv': 'uniq_bdv'}, inplace=True)
+    res_2017.drop(columns=['code_insee_commune_intermediaire', 'numero_panneau', 'uniq_bdv',
+                           'nb_inscrits', 'nb_abstentions', 'abstentions_sur_inscrits_pc', 'nb_votants',
+                           'votants_sur_inscrits_pc', 'nb_blancs', 'blancs_sur_inscrits_pc',
+                           'blancs_sur_votants_pc', 'nb_nuls', 'nuls_sur_inscrits_pc','nuls_sur_votants_pc',
+                           'nb_exprimes', 'exprimes_sur_inscrits_pc', 'exprimes_sur_votants_pc',
+                           'sexe_candidat', 'nom_candidat', 'prenom_candidat', 'nb_voix'], inplace=True)
+    res_2017['code_bdv'] = res_2017['code_insee_commune'] + '_' + res_2017['code_bdv_intermédiaire']
+    res_2017.drop_duplicates(subset=['code_bdv'], keep='last', inplace=True)
+
+    res_2017['code_insee_commune'] = res_2017['code_insee_commune'].apply(
+        lambda x: change_code_commune(padding(x), FDE=1))
+    res_2017.nom_departement = res_2017.nom_departement.str.title()
+    res_2017.code_insee_departement = res_2017.code_insee_departement.apply(lambda x: change_code_dep(x))
+    res_2017.to_csv(filepath_info_supp_bdv_2017, index=False)
+    return res_2017
+
+
+def creation_fichier_info_supp_departement(filepath_info_supp_departement):
+    filepath_info_supp_bdv_2017 = 'info_supp_bdv_2017.csv'
+    try:
+        with open(filepath_info_supp_bdv_2017):
+            info_supp_bdv_2017_df = pd.read_csv(filepath_info_supp_bdv_2017,
+                                           dtype={'code_insee_departement': str, 'nom_departement': str})
+    except IOError:
+        info_supp_bdv_2017_df = creation_fichier_info_supp_bdv_2017(filepath_info_supp_bdv_2017)
+
+    dep_df = info_supp_bdv_2017_df[['code_insee_departement', 'nom_departement']].drop_duplicates(
+        subset=['code_insee_departement', 'nom_departement'], keep='first')
+    dep_df.to_csv(filepath_info_supp_departement, index=False)
+    return dep_df
+
+
+def jointure_code_departement(df):
+    """
+    :param df: dataframe
+    :return: un dataframe avec toutes les informations utiles au niveau départemental - en particulier le nom du departement
+    """
     if 'nom_departement' in df.columns.tolist():
         return df
-    filepath_dep = 'departement_presidentielle_2017'
+    filepath_info_supp_dep = 'info_supp_departement_presidentielle_2017.csv'
     try:
-        with open(filepath_dep):
-            dep_df = pd.read_csv(filepath_dep,
-                                 dtype={'code_insee_departement': str, 'nom_departement': str})
+        with open(filepath_info_supp_dep):
+            info_supp_dep_df = pd.read_csv(filepath_info_supp_dep,
+                                           dtype={'code_insee_departement': str, 'nom_departement': str})
     except IOError:
-        res2017_filepath = "/Users/eugenie.ly/Documents/La REM/données/données électorales/présidentielles/2017_T1/bureau de vote/présidentielles2017_T1_bdv_OpenDataSoft__election-presidentielle-2017-resultats-par-bureaux-de-vote-tour-1.csv"
-        separator = ';'
-        res2017_df = pd.read_csv(res2017_filepath, sep=separator,
-                                 dtype={'Code du département': str, 'Département': str,
-                                        'Code de la circonscription': str,
-                                        'Circonscription': str, 'Code de la commune': str, 'Commune': str,
-                                        'Bureau de vote': str, 'Code Insee': str,
-                                        'Coordonnées': str, 'Nom Bureau Vote': str, 'Adresse': str, 'Code Postal': str,
-                                        'Ville': str, 'uniq_bdv': str})
-        res2017_df.rename(columns={'Code du département': 'code_insee_departement', 'Département': 'nom_departement',
-                                   'Code de la circonscription': 'code_circonscription',
-                                   'Circonscription': 'nom_circonscription',
-                                   'Code de la commune': 'code_insee_commune_intermediaire',
-                                   'Commune': 'nom_commune_bdv', 'Bureau de vote': 'code_bdv',
-                                   'Inscrits': 'nb_inscrits', 'Abstentions': 'nb_abstentions',
-                                   '% Abs/Ins': 'abstentions_sur_inscrits_pc', 'Votants': 'nb_votants',
-                                   '% Vot/Ins': 'votants_sur_inscrits_pc',
-                                   'Blancs': 'nb_blancs', '% Blancs/Ins': 'blancs_sur_inscrits_pc',
-                                   '% Blancs/Vot': 'blancs_sur_votants_pc', 'Nuls': 'nb_nuls',
-                                   '% Nuls/Ins': 'nuls_sur_inscrits_pc',
-                                   '% Nuls/Vot': 'nuls_sur_votants_pc', 'Exprimés': 'nb_exprimes',
-                                   '% Exp/Ins': 'exprimes_sur_inscrits_pc', '% Exp/Vot': 'exprimes_sur_votants_pc',
-                                   'N°Panneau': 'numero_panneau', 'Sexe': 'sexe_candidat',
-                                   'Nom': 'nom_candidat', 'Prénom': 'prenom_candidat', 'Voix': 'nb_voix',
-                                   '% Voix/Ins': 'voix_sur_inscrits_pc', '% Voix/Exp': 'voix_sur_exprimes_pc',
-                                   'Code Insee': 'code_insee_commune',
-                                   'Coordonnées': 'latitude_longitude_bdv', 'Nom Bureau Vote': 'nom_bdv',
-                                   'Adresse': 'adresse_bdv', 'Code Postal': 'code_postal', 'Ville': 'ville_adresse_bdv',
-                                   'uniq_bdv': 'uniq_bdv'}, inplace=True)
-        res2017_df['code_insee_commune'] = res2017_df['code_insee_commune'].apply(
-            lambda x: change_code_commune(padding(x), FDE=1))
-        res2017_df.nom_departement = res2017_df.nom_departement.str.title()
-        res2017_df.code_insee_departement = res2017_df.code_insee_departement.apply(lambda x: change_code_dep(x))
-        dep_df = res2017_df[['code_insee_departement', 'nom_departement']].drop_duplicates(
-            subset=['code_insee_departement', 'nom_departement'], keep='first')
-        dep_df.to_csv(filepath_dep, index=False)
-    return pd.merge(df, dep_df, on='code_insee_departement', how='left')
+        info_supp_dep_df = creation_fichier_info_supp_departement(filepath_info_supp_dep)
+    return pd.merge(df, info_supp_dep_df, on='code_insee_departement', how='left')
 
 
-def jointure(df):
-    df_intermediaire = jointure_nom_departement(df)
-    filepath_info_supp = 'info_supp_total.csv'
+def jointure_code_bdv(df, columns=[]):
+    if len(columns) == 0:
+        columns = df.columns.tolist()
+    filepath_info_supp_bdv_2017 = 'info_supp_bdv_2017.csv'
     try:
-        with open(filepath_info_supp):
-            info_supp_df = pd.read_csv(filepath_info_supp,
-                                       dtype = {'code_insee_commune':str, 'population_commune':str,
-                                                'latitude_longitude_commune':str, 'code_postal':str,
-                                                'code_insee_region':str, 'nom_region':str, 'code_siren_epci':str,
-                                                'nom_epci':str, 'nature_juridique_epci':str,
-                                                'mode_financement_epci':str, 'nb_communes_epci':str,
-                                                'population_epci':str})
+        with open(filepath_info_supp_bdv_2017):
+            info_supp_bdv_2017_df = pd.read_csv(filepath_info_supp_bdv_2017,
+                                                dtype={'code_insee_departement': str, 'nom_departement': str})
     except IOError:
-        info_supp_df = creation_fichier_info_supp(filepath_info_supp)
-    return pd.merge(df_intermediaire, info_supp_df, on='code_insee_commune', how='left')
+        info_supp_bdv_2017_df = creation_fichier_info_supp_bdv_2017(filepath_info_supp_bdv_2017)
+    return pd.merge(df, info_supp_bdv_2017_df[columns], on='code_bdv', how='left')
+
+
+def jointure(df, columns=[]):
+    df_1 = jointure_code_departement(df)
+    if len(columns)==0:
+        return jointure_code_commune(df_1)
+    df_2 = jointure_code_commune(df_1)
+    return jointure_code_bdv(df_2, columns)
 
 
 def traitement_election(res_electoral_insee, nom_election, date_election):
@@ -511,3 +566,9 @@ def traitement_election(res_electoral_insee, nom_election, date_election):
     res3['nom_election'] = nom_election
     res3['date_election'] = date_election
     return info_commune(res3, nom_election, date_election)
+
+
+def pc(x, col1, col2):
+    if int(x[col2]) == 0:
+        return 0
+    return str(round(int(x[col1]) / int(x[col2]) * 100, 2))
