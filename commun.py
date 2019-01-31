@@ -373,7 +373,122 @@ def creation_fichier_info_supp(filepath_info_supp):
     return J3
 
 
+def check_format(df):
+    if 'code_insee_departement' in df.columns:
+        L = []
+        for i in df.code_insee_departement.unique().tolist():
+            try:
+                var = int(i)
+                if var >= 97:
+                    L.append(var)
+            except ValueError:
+                L.append(i)
+        print('departement avec des lettres ou des caractères spéciaux ou outre-mer : ')
+        print(L)
+        print()
+    if 'code_insee_commune' in df.columns:
+        L=[]
+        cnt = 0
+        for i in df.code_insee_commune.unique().tolist():
+            if len(i) != 5:
+                cnt += 1
+
+            j = i[:2]
+            try:
+                var = int(j)
+                if var >= 97:
+                    if j not in L:
+                        L.append(j)
+            except ValueError:
+                if j not in L:
+                    L.append(j)
+        print('debut du code insee communal avec des lettres ou des caractères spéciaux ou outre-mer : ')
+        print(L)
+        print()
+        print("nombre de codes insee communaux qui n'ont pas 5 caractères" + str(cnt))
+        print()
+    if 'code_bdv' in df.columns:
+        L1 = []
+        L2 = []
+        L3 = []
+        L4 = []
+        for i in df.code_bdv.unique().tolist():
+            j = i.split('_')
+            if len(j) != 2:
+                L1.append(i)
+            else:
+                if len(j[0]) != 5:
+                    L2.append(i)
+                if len(j[1]) != 4:
+                    L3.append(i)
+                try:
+                    var = int(j[1])
+                    pass
+                except ValueError:
+                    if j not in L:
+                        L4.append(j)
+        print('code_bdv pas bons :')
+        print('1/ erreur pas au format "code_insee_commune + code_bdv_intermédiaire" ')
+        print(len(L1))
+        print(L1)
+        print("2/ erreur : le code_insee à gauche n'a pas 5 caractères")
+        print(L2)
+        print("3/ erreur : le code_intermédiaire_bdv à droite n'a pas 4 caractères")
+        print(L3)
+        print("4/ erreur/attention : le code_intermédiaire_bdv à droite n'est pas un entier") # rajouter le cas de Caen
+        print(L4)
+
+
+def jointure_nom_departement(df):
+    if 'nom_departement' in df.columns.tolist():
+        return df
+    filepath_dep = 'departement_presidentielle_2017'
+    try:
+        with open(filepath_dep):
+            dep_df = pd.read_csv(filepath_dep,
+                                 dtype={'code_insee_departement': str, 'nom_departement': str})
+    except IOError:
+        res2017_filepath = "/Users/eugenie.ly/Documents/La REM/données/données électorales/présidentielles/2017_T1/bureau de vote/présidentielles2017_T1_bdv_OpenDataSoft__election-presidentielle-2017-resultats-par-bureaux-de-vote-tour-1.csv"
+        separator = ';'
+        res2017_df = pd.read_csv(res2017_filepath, sep=separator,
+                                 dtype={'Code du département': str, 'Département': str,
+                                        'Code de la circonscription': str,
+                                        'Circonscription': str, 'Code de la commune': str, 'Commune': str,
+                                        'Bureau de vote': str, 'Code Insee': str,
+                                        'Coordonnées': str, 'Nom Bureau Vote': str, 'Adresse': str, 'Code Postal': str,
+                                        'Ville': str, 'uniq_bdv': str})
+        res2017_df.rename(columns={'Code du département': 'code_insee_departement', 'Département': 'nom_departement',
+                                   'Code de la circonscription': 'code_circonscription',
+                                   'Circonscription': 'nom_circonscription',
+                                   'Code de la commune': 'code_insee_commune_intermediaire',
+                                   'Commune': 'nom_commune_bdv', 'Bureau de vote': 'code_bdv',
+                                   'Inscrits': 'nb_inscrits', 'Abstentions': 'nb_abstentions',
+                                   '% Abs/Ins': 'abstentions_sur_inscrits_pc', 'Votants': 'nb_votants',
+                                   '% Vot/Ins': 'votants_sur_inscrits_pc',
+                                   'Blancs': 'nb_blancs', '% Blancs/Ins': 'blancs_sur_inscrits_pc',
+                                   '% Blancs/Vot': 'blancs_sur_votants_pc', 'Nuls': 'nb_nuls',
+                                   '% Nuls/Ins': 'nuls_sur_inscrits_pc',
+                                   '% Nuls/Vot': 'nuls_sur_votants_pc', 'Exprimés': 'nb_exprimes',
+                                   '% Exp/Ins': 'exprimes_sur_inscrits_pc', '% Exp/Vot': 'exprimes_sur_votants_pc',
+                                   'N°Panneau': 'numero_panneau', 'Sexe': 'sexe_candidat',
+                                   'Nom': 'nom_candidat', 'Prénom': 'prenom_candidat', 'Voix': 'nb_voix',
+                                   '% Voix/Ins': 'voix_sur_inscrits_pc', '% Voix/Exp': 'voix_sur_exprimes_pc',
+                                   'Code Insee': 'code_insee_commune',
+                                   'Coordonnées': 'latitude_longitude_bdv', 'Nom Bureau Vote': 'nom_bdv',
+                                   'Adresse': 'adresse_bdv', 'Code Postal': 'code_postal', 'Ville': 'ville_adresse_bdv',
+                                   'uniq_bdv': 'uniq_bdv'}, inplace=True)
+        res2017_df['code_insee_commune'] = res2017_df['code_insee_commune'].apply(
+            lambda x: change_code_commune(padding(x), FDE=1))
+        res2017_df.nom_departement = res2017_df.nom_departement.str.title()
+        res2017_df.code_insee_departement = res2017_df.code_insee_departement.apply(lambda x: change_code_dep(x))
+        dep_df = res2017_df[['code_insee_departement', 'nom_departement']].drop_duplicates(
+            subset=['code_insee_departement', 'nom_departement'], keep='first')
+        dep_df.to_csv(filepath_dep, index=False)
+    return pd.merge(df, dep_df, on='code_insee_departement', how='left')
+
+
 def jointure(df):
+    df_intermediaire = jointure_nom_departement(df)
     filepath_info_supp = 'info_supp_total.csv'
     try:
         with open(filepath_info_supp):
@@ -386,7 +501,7 @@ def jointure(df):
                                                 'population_epci':str})
     except IOError:
         info_supp_df = creation_fichier_info_supp(filepath_info_supp)
-    return pd.merge(df, info_supp_df, on='code_insee_commune', how='left')
+    return pd.merge(df_intermediaire, info_supp_df, on='code_insee_commune', how='left')
 
 
 def traitement_election(res_electoral_insee, nom_election, date_election):

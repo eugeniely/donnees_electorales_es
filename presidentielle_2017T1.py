@@ -44,5 +44,6 @@ res_electoral_insee['code_bdv'] = res_electoral_insee['code_insee_commune']+'_'+
 #res5 = commun.info_commune(res4, nom_election, date_election)`
 
 #Solution 2
+commun.check_format(res_electoral_insee)
 res = commun.traitement_election(res_electoral_insee, nom_election, date_election)
 res.to_csv(output_file, index=False)
