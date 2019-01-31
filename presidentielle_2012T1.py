@@ -77,13 +77,6 @@ col = ['nom_circonscription',
        'ville_adresse_bdv',
        'latitude_longitude_bdv']
 
-
-population_commune_x            642130
-latitude_longitude_commune_x    673720
-code_postal_x                   673720
-code_insee_region_x             672690
-nom_region_x
-
 #res_2012 = pd.merge(res_2012, res_2017[col], on='code_bdv', how='left')
 commun.check_format(res_2012)
 res1 = commun.traitement_election(res_2012, nom_election, date_election)
