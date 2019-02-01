@@ -57,6 +57,13 @@ def code_insee_6_car(x):
     return x
 
 
+def change_Caen_bdv(x):
+    L = x.split('_')
+    if len(L)==2 :
+        return padding(L[0],2)+'.'+L[1]
+    return x
+
+
 def merge_epci(df):
     filepath = '/Users/eugenie.ly/Documents/La REM/données/arborescences/epci/epcicom2018_4.xls'
     filesheet = 'Epcicom2018'
