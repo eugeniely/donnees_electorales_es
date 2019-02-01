@@ -27,7 +27,6 @@ res_2012.drop(
     columns=['No de canton', 'No Tour', 'Code Commune', 'Code candidat', 'No de depot du candidat', 'Coordonnees'],
     inplace=True)
 res_2012.code_insee_departement = res_2012.code_insee_departement.apply(lambda x: commun.change_code_dep(commun.padding(x, 2)))
-
 res_2012['code_insee_commune'] = res_2012['code_insee_commune'].apply(lambda x: commun.change_code_commune(commun.padding(x), FDE=1))
 
 L = ['code_insee_departement', 'code_circonscription',
@@ -77,7 +76,6 @@ col = ['nom_circonscription',
        'ville_adresse_bdv',
        'latitude_longitude_bdv']
 
-#res_2012 = pd.merge(res_2012, res_2017[col], on='code_bdv', how='left')
 commun.check_format(res_2012)
 res1 = commun.traitement_election(res_2012, nom_election, date_election)
 res = commun.jointure(res1, col)
